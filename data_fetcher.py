@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 import yfinance as yf
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -173,3 +174,4 @@ def get_horus_sentiment(tickers):
             sentiment_scores[ticker] = sentiment_biases.get(ticker, 0.0)
 
     return sentiment_scores
+
