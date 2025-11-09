@@ -123,55 +123,59 @@ def get_all_market_data(interval="1h", duration=100):
     )
     return price_df, successful_assets
 
-
-def get_horus_sentiment(tickers):
+#data can only be on a daily basis
+def get_horus_sentiment(sentiments=['whale_supply_share','whale_net_flow','whale_inflow_count'],interval='1d',duration=50):
     """Get sentiment scores for tickers"""
     sentiment_scores = {}
+    duration+=1
+    duration = duration * 24*60*60
+    start=int(time.time())-duration
+    end=int(time.time())
 
-    for ticker in tickers:
-        clean_ticker = ticker.replace("-USD", "")
+    for sentiment in sentiments:
+        url = f"https://api-horus.com/addresses/{sentiment}"
+        response = requests.get(
+            url,
+            headers={"X-API-Key": HORUS_KEY},
+            params={
+                "chain": "bitcoin",
+                'interval':interval,
+                'start' : start,
+                'end' : end
+                },
+            timeout=10,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            sentiment_scores[sentiment] = [item[sentiment] for item in data]         
+        else:
+            logger.warning(f"Sentiment failed for {sentiment}: {response.text}")
+    #length-set:
+    min_length = min(len(sentiment_scores[asset]) for asset in sentiment_scores.keys())
+    for asset in sentiment_scores.keys():
+        sentiment_scores[asset] = sentiment_scores[asset][-min_length:]
+    #data-clean:
+    for index in range(len(sentiment_scores['whale_supply_share'])):
+        if(sentiment_scores['whale_supply_share'][index]>1 and index):
+            sentiment_scores['whale_supply_share'][index]=sentiment_scores['whale_supply_share'][index-1]
+    return pd.DataFrame(sentiment_scores)
 
-        try:
-            url = "https://api-horus.com/sentiment"
-            response = requests.get(
-                url,
-                headers={"X-API-Key": HORUS_KEY},
-                params={"asset": clean_ticker},
-                timeout=10,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    sentiment = data[-1].get(
-                        "sentiment_score", data[-1].get("sentiment", 0.0)
-                    )
-                else:
-                    sentiment = data.get("sentiment_score", data.get("sentiment", 0.0))
-
-                sentiment_scores[ticker] = float(sentiment)
-
-        except Exception as e:
-            logger.warning(f"Sentiment failed for {ticker}: {e}")
-            sentiment_scores[ticker] = 0.0
-
-    # Realistic sentiment biases for demo
-    if not any(abs(score) > 0.2 for score in sentiment_scores.values()):
-        logger.info("Using realistic sentiment biases")
-        sentiment_biases = {
-            "BTC-USD": 0.3,
-            "ETH-USD": 0.2,
-            "SOL-USD": 0.4,
-            "BNB-USD": 0.1,
-            "XRP-USD": -0.1,
-            "ADA-USD": 0.0,
-            "AVAX-USD": 0.3,
-            "DOT-USD": 0.1,
-            "LINK-USD": 0.2,
-            "LTC-USD": 0.0,
-        }
-        for ticker in tickers:
-            sentiment_scores[ticker] = sentiment_biases.get(ticker, 0.0)
-
-    return sentiment_scores
-
+    """
+        # Realistic sentiment biases for demo
+        if not any(abs(score) > 0.2 for score in sentiment_scores.values()):
+            logger.info("Using realistic sentiment biases")
+            sentiment_biases = {
+                "BTC-USD": 0.3,
+                "ETH-USD": 0.2,
+                "SOL-USD": 0.4,
+                "BNB-USD": 0.1,
+                "XRP-USD": -0.1,
+                "ADA-USD": 0.0,
+                "AVAX-USD": 0.3,
+                "DOT-USD": 0.1,
+                "LINK-USD": 0.2,
+                "LTC-USD": 0.0,
+            }
+            for ticker in tickers:
+                sentiment_scores[ticker] = sentiment_biases.get(ticker, 0.0)
+    """
