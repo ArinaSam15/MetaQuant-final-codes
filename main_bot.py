@@ -1,4 +1,4 @@
-# main_bot.py - COMPETITION OPTIMIZED (2-WEEK TIMEFRAME)
+# main_bot.py - COMPETITION OPTIMIZED (2-WEEK TIMEFRAME) - FIXED WASH TRADING VERSION
 import time
 import logging
 import threading
@@ -12,6 +12,19 @@ import allocator
 import bot_executor
 import performance_logger
 import dashboard
+
+# main_bot.py - COMPETITION OPTIMIZED (2-WEEK TIMEFRAME) - FIXED WASH TRADING VERSION
+import time
+import logging
+import threading
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+
+
+# Import your modules
+import data_fetcher
+
+
 
 # Setup logging
 logging.basicConfig(
@@ -34,29 +47,31 @@ class CompetitionQUBOBot:
         self.consecutive_failures = 0
         self.max_consecutive_failures = 3
         self.dashboard_thread = None
-        self.current_optimal_cycle = 10800  # Start with 3 hours (more conservative)
+        self.current_optimal_cycle = 43200  # Start with 12 hours (conservative)
         self.market_state = "UNKNOWN"
         self.portfolio_value_history = []
         self.circuit_breaker_triggered = False
         self.competition_start_time = datetime.now()
         self.competition_days_remaining = 14
 
-        # UPDATED COMPETITION HYPERPARAMETERS - MATCH bot_executor.py
+        # FIXED COMPETITION HYPERPARAMETERS - ANTI-WASH TRADING FOCUS
         self.hyperparameters = {
-            "rebalance_interval": 6 * 3600,  # 6 hours base (more conservative)
-            "trade_threshold": 0.12,  # 12% threshold (matches bot_executor)
-            "min_hold_hours": 8,  # 8 hours between trades (matches wash controller)
-            "min_profit_threshold": 0.008,  # 0.8% net profit (matches wash controller)
-            "max_daily_trades": 3,  # Maximum 3 trades per day (matches wash controller)
-            "emergency_stop_loss": -0.02,  # Stop trading if 2% loss in 2 cycles
+            "rebalance_interval": 12 * 3600,  # 12 hours base (more conservative)
+            "trade_threshold": 0.35,  # 35% threshold (reduced frequency) - INCREASED
+            "min_hold_hours": 48,  # 48 hours between trades on same asset - INCREASED
+            "min_profit_threshold": 0.03,  # 3% minimum profit - INCREASED
+            "max_daily_trades": 2,  # Only 2 trades per day - REDUCED
+            "emergency_stop_loss": -0.05,  # Stop trading if 5% loss in 2 cycles - MORE LENIENT
             "final_week_conservative": False,
-            "min_trade_value": 100.0,  # Minimum $100 trade size
+            "min_trade_value": 150.0,  # Minimum $150 trade size - INCREASED
+            "trade_cooldown_hours": 18,  # 18 hours between any trades - INCREASED
+            "min_holding_threshold": 0.08,  # Keep at least 8% in existing positions - NEW
         }
 
         logger.info("🏆 COMPETITION QUBO Bot Initialized (2-Week Timeline)")
         logger.info(f"⏰ Competition ends in: {self.competition_days_remaining} days")
         logger.info(
-            f"🎯 Aggressive Mode: {self.hyperparameters['min_hold_hours']}h min hold"
+            f"🎯 Anti-Wash Mode: {self.hyperparameters['min_hold_hours']}h min hold, {self.hyperparameters['max_daily_trades']} max daily trades"
         )
 
     def update_competition_parameters(self):
@@ -69,10 +84,11 @@ class CompetitionQUBOBot:
             logger.info("🛡️ Entering final week conservative mode")
             self.hyperparameters.update(
                 {
-                    "trade_threshold": 0.15,  # Higher threshold
-                    "min_hold_hours": 12,  # Longer holds
-                    "min_profit_threshold": 0.012,  # Higher profit requirement
-                    "max_daily_trades": 2,
+                    "trade_threshold": 0.40,  # Higher threshold
+                    "min_hold_hours": 72,  # Longer holds
+                    "min_profit_threshold": 0.04,  # Higher profit requirement
+                    "max_daily_trades": 1,  # Only 1 trade per day
+                    "min_holding_threshold": 0.12,  # Keep more existing positions
                     "final_week_conservative": True,
                 }
             )
@@ -107,12 +123,12 @@ class CompetitionQUBOBot:
         recent_trades = self.performance_logger.trade_log[-10:]
         asset_activity = {}
         for trade in recent_trades:
-            asset = trade["asset"]
+            asset = trade.get("asset", "UNKNOWN")
             if asset not in asset_activity:
                 asset_activity[asset] = []
             asset_activity[asset].append(
                 {
-                    "action": trade["action"],
+                    "action": trade.get("action", "UNKNOWN"),
                     "timestamp": trade.get("timestamp", datetime.now()),
                 }
             )
@@ -128,7 +144,7 @@ class CompetitionQUBOBot:
                     time_span = max(t["timestamp"] for t in trades) - min(
                         t["timestamp"] for t in trades
                     )
-                    if time_span.total_seconds() < 28800:  # Within 8 hours
+                    if time_span.total_seconds() < 86400:  # Within 24 hours (more lenient)
                         logger.error(
                             f"🚨 CIRCUIT BREAKER: Excessive flipping on {asset}"
                         )
@@ -137,15 +153,29 @@ class CompetitionQUBOBot:
         return False
 
     def should_skip_rebalance(self, current_holdings, price_data):
-        """Competition-optimized emergency checks"""
+        """Competition-optimized emergency checks with cooldown periods"""
         if self.emergency_circuit_breaker():
             logger.error("🚨 CIRCUIT BREAKER ACTIVE - Skipping rebalance")
             return True
 
+        # FIXED: Add trade cooldown period
+        recent_trades = getattr(self.performance_logger, "trade_log", [])
+        if recent_trades:
+            latest_trade_time = max(
+                [t.get("timestamp", datetime.min) for t in recent_trades if "timestamp" in t],
+                default=datetime.min
+            )
+            time_since_last_trade = datetime.now() - latest_trade_time
+            
+            if time_since_last_trade.total_seconds() < self.hyperparameters["trade_cooldown_hours"] * 3600:
+                hours_since = time_since_last_trade.total_seconds() / 3600
+                logger.info(f"⏳ In trade cooldown period ({hours_since:.1f}h/{self.hyperparameters['trade_cooldown_hours']}h)")
+                return True
+
         if len(self.portfolio_value_history) < 3:
             return False
 
-        # If we've lost 3% in last 2 cycles, stop trading temporarily
+        # If we've lost 5% in last 2 cycles, stop trading temporarily
         recent_loss = (
             self.portfolio_value_history[-1] - self.portfolio_value_history[-3]
         ) / self.portfolio_value_history[-3]
@@ -161,7 +191,7 @@ class CompetitionQUBOBot:
     def fetch_data_parallel(self):
         """Competition-optimized data fetching with faster timeouts"""
         try:
-            # Use cached data if recent
+        # Use cached data if recent
             if (
                 self.last_successful_data
                 and (datetime.now() - self.last_successful_data["timestamp"]).seconds
@@ -172,22 +202,28 @@ class CompetitionQUBOBot:
                     self.last_successful_data["sentiment_scores"],
                 )
 
-            # Faster parallel data fetching for competition
+        # Faster parallel data fetching for competition
             with ThreadPoolExecutor(max_workers=2) as executor:
                 market_future = executor.submit(
-                    data_fetcher.get_all_market_data, "1h", 80  # Add the interval parameter
+                    data_fetcher.get_all_market_data, "1h", 80
                 )
                 sentiment_future = executor.submit(
                     data_fetcher.get_sentiment_score
                 )
 
-                # Faster timeouts for competition responsiveness
-                price_data, successful_assets = market_future.result(timeout=20)
+            # Faster timeouts for competition responsiveness
+                market_result = market_future.result(timeout=20)
                 sentiment_scores = sentiment_future.result(timeout=10)
 
-            # Validate data
+        # Unpack the market data result
+            if market_result is not None:
+                price_data, successful_assets = market_result
+            else:
+                price_data, successful_assets = None, []
+
+        # Validate data
             if price_data is not None and not price_data.empty and len(price_data) > 10:
-                # Cache successful data
+            # Cache successful data
                 self.last_successful_data = {
                     "price_data": price_data,
                     "sentiment_scores": sentiment_scores,
@@ -212,27 +248,34 @@ class CompetitionQUBOBot:
                 )
             return None, None
 
-    def calculate_portfolio_value(self, holdings, price_data):
-        """Calculate current portfolio value with detailed logging"""
+    def calculate_total_portfolio_value(self, holdings, price_data, cash_balance):
+        """FIXED: Calculate total portfolio value without double-counting"""
         try:
-            total_value = 0
+            crypto_value = 0
             logger.info("📊 Portfolio Value Breakdown:")
+            
             for asset, quantity in holdings.items():
                 if asset in price_data.columns:
                     current_price = price_data[asset].iloc[-1]
                     asset_value = quantity * current_price
-                    total_value += asset_value
+                    crypto_value += asset_value
                     logger.info(f"   {asset}: {quantity} × ${current_price:.2f} = ${asset_value:.2f}")
                 else:
                     logger.warning(f"   {asset}: No price data available")
-        
-            logger.info(f"   Total Portfolio Value: ${total_value:.2f}")
+            
+            total_value = crypto_value + cash_balance
+            
+            logger.info(f"   Crypto Value: ${crypto_value:.2f}")
+            logger.info(f"   Cash Balance: ${cash_balance:.2f}")
+            logger.info(f"   TOTAL Portfolio Value: ${total_value:.2f}")
+            
             return total_value
+            
         except Exception as e:
             logger.error(f"Portfolio value calculation error: {e}")
-            return 0
+            return cash_balance  # Fallback to just cash
 
-    def get_portfolio_with_retry(self, max_retries=2):  # Faster retries for competition
+    def get_portfolio_with_retry(self, max_retries=2):
         """Get portfolio with faster retry logic"""
         for attempt in range(max_retries):
             try:
@@ -248,12 +291,14 @@ class CompetitionQUBOBot:
         return {}, 0.0
 
     def log_trade_results(self, rebalance_result):
-        """Log trade results with competition context"""
+        """FIXED: Log trade results with proper error handling"""
         try:
             if rebalance_result.get("sell_orders"):
                 for order in rebalance_result["sell_orders"]:
+                # ENSURE ASSET KEY EXISTS
+                    asset = order.get("asset", "UNKNOWN_ASSET")
                     self.performance_logger.log_trade(
-                        asset=order.get("asset", "UNKNOWN"),
+                        asset=asset,
                         action="SELL",
                         quantity=order.get("quantity", 0),
                         price=order.get("price", 0),
@@ -263,8 +308,9 @@ class CompetitionQUBOBot:
 
             if rebalance_result.get("buy_orders"):
                 for order in rebalance_result["buy_orders"]:
+                    asset = order.get("asset", "UNKNOWN_ASSET")  # SAME FIX HERE
                     self.performance_logger.log_trade(
-                        asset=order.get("asset", "UNKNOWN"),
+                        asset=asset,
                         action="BUY", 
                         quantity=order.get("quantity", 0),
                         price=order.get("price", 0),
@@ -275,7 +321,7 @@ class CompetitionQUBOBot:
             logger.error(f"Error logging trade results: {e}")
 
     def run_trading_cycle(self):
-        """Competition-optimized trading cycle"""
+        """Competition-optimized trading cycle with anti-wash protection"""
         # Update competition parameters
         self.update_competition_parameters()
 
@@ -286,34 +332,42 @@ class CompetitionQUBOBot:
         cycle_start = time.time()
 
         try:
-            # 1. Fetch data in parallel
+        # 1. Fetch data in parallel
             logger.info("📥 Fetching competition data...")
-            price_data, sentiment_scores = self.fetch_data_parallel()
+            data_result = self.fetch_data_parallel()
+
+            if data_result is None:
+                logger.error("❌ No market data available")
+                self.consecutive_failures += 1
+                return False, 10800  # Use consistent 3 hours
+
+        # Unpack the tuple correctly
+            price_data, sentiment_scores = data_result
 
             if price_data is None or price_data.empty:
                 logger.error("❌ No market data available")
                 self.consecutive_failures += 1
-                return False, 10800  # Return 3-hour default
+                return False, 10800  # Use consistent 3 hours
 
-            # 2. Quick data validation
+        # 2. Quick data validation
             if len(price_data) < 20:
                 logger.warning("⚠️ Insufficient data points, skipping cycle")
                 self.consecutive_failures += 1
-                return False, 10800
+                return False, 10800  # Use consistent 3 hours
 
-            # 4. Get current portfolio BEFORE skip checks
+        # 3. Get current portfolio
             current_holdings, cash_balance = self.get_portfolio_with_retry()
 
-# 5. Emergency skip checks (now current_holdings is defined)
+        # 4. Emergency skip checks
             if self.should_skip_rebalance(current_holdings, price_data):
-                logger.warning("🚨 Emergency skip triggered")
+                logger.warning("🚨 Emergency skip triggered - holding current positions")
                 return False, self.current_optimal_cycle
 
-            # 5. ADAPTIVE QUBO Asset Selection
+        # 5. ADAPTIVE QUBO Asset Selection
             logger.info("🎯 Running competition QUBO optimization...")
 
             try:
-                # Try adaptive version (5 return values)
+            # Try adaptive version (5 return values)
                 (
                     selected_assets,
                     regime,
@@ -324,45 +378,43 @@ class CompetitionQUBOBot:
                     price_data, sentiment_scores, self.lambda_risk
                 )
 
-                # Store adaptive cycle time
+            # Store adaptive cycle time
                 self.current_optimal_cycle = optimal_cycle_seconds
                 self.market_state = regime
                 logger.info(f"📊 Competition cycle: {optimal_cycle_seconds/3600:.1f}h")
 
             except ValueError as e:
                 if "too many values to unpack" in str(e):
-                    # Legacy version
+                # Legacy version
                     selected_assets, regime, n_assets, dynamic_lambda = (
                         qubo_optimizer.get_target_assets(
                             price_data, sentiment_scores, self.lambda_risk
                         )
                     )
-                    self.current_optimal_cycle = 7200  # 2 hours default
+                    self.current_optimal_cycle = 10800  # 3 hours default
                     self.market_state = regime
                 else:
                     raise e
             except Exception as e:
                 logger.error(f"❌ QUBO optimization failed: {e}")
-                # Competition fallback - be more aggressive
-                returns = price_data.pct_change().iloc[-24:].mean()  # Shorter lookback
-                selected_assets = returns.nlargest(6).index.tolist()  # More assets
+            # Competition fallback - be more conservative
+                returns = price_data.pct_change().iloc[-24:].mean()
+                selected_assets = returns.nlargest(3).index.tolist()
                 regime = "CONSERVATIVE_FALLBACK"
                 n_assets = len(selected_assets)
-                dynamic_lambda = self.lambda_risk * 1.2  # Lower risk aversion
-                self.current_optimal_cycle = 10800
+                dynamic_lambda = self.lambda_risk * 1.5
+                self.current_optimal_cycle = 10800  # 3 hours
 
             if not selected_assets:
-                selected_assets = price_data.columns[
-                    :4
-                ].tolist()  # More fallback assets
+                selected_assets = price_data.columns[:2].tolist()
                 regime = "ULTRA_CONSERVATIVE"
 
-            # Update lambda for next cycle
+        # Update lambda for next cycle
             self.lambda_risk = dynamic_lambda
 
             logger.info(f"✅ Selected {len(selected_assets)} assets for competition")
 
-            # 6. Portfolio Allocation
+        # 6. Portfolio Allocation
             logger.info("📊 Calculating competition weights...")
             try:
                 portfolio_weights = allocator.get_target_weights(
@@ -370,19 +422,14 @@ class CompetitionQUBOBot:
                 )
             except Exception as e:
                 logger.error(f"❌ Portfolio allocation failed: {e}")
-                # Equal weight but more concentrated
                 portfolio_weights = {
                     asset: 1.0 / len(selected_assets) for asset in selected_assets
                 }
 
-            # 7. Get current portfolio
-            #current_holdings, cash_balance = self.get_portfolio_with_retry()
-
-            # Track portfolio value
-            current_portfolio_value = self.calculate_portfolio_value(
-                current_holdings, price_data
+        # 7. Calculate total portfolio value correctly
+            total_value = self.calculate_total_portfolio_value(
+                current_holdings, price_data, cash_balance
             )
-            total_value = current_portfolio_value + cash_balance
             self.portfolio_value_history.append(total_value)
 
             self.performance_logger.log_portfolio_value(total_value)
@@ -394,7 +441,7 @@ class CompetitionQUBOBot:
 
             logger.info(f"💼 Portfolio: ${total_value:,.2f}")
 
-            # 8. Execute competition rebalance
+        # 8. Execute competition rebalance
             rebalance_result = bot_executor.execute_rebalance(
                 portfolio_weights,
                 current_holdings,
@@ -402,7 +449,7 @@ class CompetitionQUBOBot:
                 threshold=self.hyperparameters["trade_threshold"],
             )
 
-            # 9. Log performance
+        # 9. Log performance
             self.performance_logger.log_rebalance(
                 timestamp=datetime.now(),
                 selected_assets=selected_assets,
@@ -412,22 +459,18 @@ class CompetitionQUBOBot:
                 lambda_risk=dynamic_lambda,
             )
 
-            # Log trade results
+        # Log trade results
             self.log_trade_results(rebalance_result)
 
             cycle_time = time.time() - cycle_start
             self.iteration_count += 1
 
-            # Calculate performance
+        # Calculate performance
             performance_info = self.calculate_performance()
 
-            logger.info(
-                f"✅ Cycle {self.iteration_count} completed in {cycle_time:.1f}s"
-            )
+            logger.info(f"✅ Cycle {self.iteration_count} completed in {cycle_time:.1f}s")
             logger.info(f"📈 {performance_info}")
-            logger.info(
-                f"🌡️ Market: {self.market_state}, Next: {self.current_optimal_cycle/3600:.1f}h"
-            )
+            logger.info(f"🌡️ Market: {self.market_state}, Next: {self.current_optimal_cycle/3600:.1f}h")
 
             self.consecutive_failures = 0
             return True, self.current_optimal_cycle
@@ -449,7 +492,7 @@ class CompetitionQUBOBot:
 
     def analyze_competition_performance(self):
         """Competition-specific performance analysis"""
-        if self.iteration_count % 5 == 0:  # More frequent analysis
+        if self.iteration_count % 3 == 0:  # More conservative analysis frequency
             logger.info("🏆 COMPETITION PERFORMANCE UPDATE")
 
             total_cycles = self.iteration_count
@@ -484,7 +527,7 @@ class CompetitionQUBOBot:
         """Main competition loop"""
         logger.info("🏁 STARTING 2-WEEK TRADING COMPETITION")
         logger.info("⏰ Competition ends in 14 days")
-        logger.info("🎯 Strategy: Aggressive first 11 days, Conservative final 3 days")
+        logger.info("🎯 Strategy: ANTI-WASH approach with minimal trading")
 
         # Start dashboard
         self.dashboard_thread = threading.Thread(
@@ -507,24 +550,24 @@ class CompetitionQUBOBot:
                     # Adaptive sleep with competition context
                     cycle_time = time.time() - cycle_start
                     sleep_time = max(
-                        optimal_cycle - cycle_time, 45
-                    )  # Minimum 45 seconds
+                        optimal_cycle - cycle_time, 300
+                    )  # Minimum 5 minutes
 
                     logger.info(
-                        f"💤 Next cycle in {sleep_time/60:.1f}m | {self.competition_days_remaining} days left"
+                        f"💤 Next cycle in {sleep_time/3600:.1f}h | {self.competition_days_remaining} days left"
                     )
                     time.sleep(sleep_time)
 
                 else:
                     self.consecutive_failures += 1
                     cycle_time = time.time() - cycle_start
-                    sleep_time = max(optimal_cycle - cycle_time, 45)
+                    sleep_time = max(optimal_cycle - cycle_time, 300)
 
                     if self.consecutive_failures >= self.max_consecutive_failures:
                         logger.error(f"🚨 Multiple failures - extended cooldown")
-                        sleep_time = min(sleep_time * 3, 7200)  # Max 2 hours
+                        sleep_time = min(sleep_time * 3, 21600)  # Max 6 hours
 
-                    logger.warning(f"🔄 Retrying in {sleep_time/60:.1f}m...")
+                    logger.warning(f"🔄 Retrying in {sleep_time/3600:.1f}h...")
                     time.sleep(sleep_time)
 
             except KeyboardInterrupt:
@@ -533,7 +576,7 @@ class CompetitionQUBOBot:
             except Exception as e:
                 logger.error(f"💥 Competition error: {e}")
                 self.consecutive_failures += 1
-                sleep_time = min(self.current_optimal_cycle, 3600)
+                sleep_time = min(self.current_optimal_cycle, 7200)  # Max 2 hours
                 time.sleep(sleep_time)
 
         logger.info("🏁 COMPETITION COMPLETED - Final performance report:")
