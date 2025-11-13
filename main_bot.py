@@ -51,7 +51,7 @@ class CompetitionQUBOBot:
         self.market_state = "UNKNOWN"
         self.portfolio_value_history = []
         self.circuit_breaker_triggered = False
-        self.competition_start_time = datetime.now()
+        self.competition_start_time = datetime.strptime('2025-11-11','%Y-%m-%d')
         self.competition_days_remaining = 14
 
         # FIXED COMPETITION HYPERPARAMETERS - ANTI-WASH TRADING FOCUS
@@ -59,12 +59,12 @@ class CompetitionQUBOBot:
             "rebalance_interval": 12 * 3600,  # 12 hours base (more conservative)
             "trade_threshold": 0.35,  # 35% threshold (reduced frequency) - INCREASED
             "min_hold_hours": 48,  # 48 hours between trades on same asset - INCREASED
-            "min_profit_threshold": 0.03,  # 3% minimum profit - INCREASED
-            "max_daily_trades": 2,  # Only 2 trades per day - REDUCED
+            "min_profit_threshold": 0,  # 3% minimum profit - INCREASED #lyc update: don't need any profit threshold since it's less possible to have any profit in a short period
+            "max_daily_trades": 999,  # lyc update: No Limitation on trades per day
             "emergency_stop_loss": -0.05,  # Stop trading if 5% loss in 2 cycles - MORE LENIENT
             "final_week_conservative": False,
             "min_trade_value": 150.0,  # Minimum $150 trade size - INCREASED
-            "trade_cooldown_hours": 18,  # 18 hours between any trades - INCREASED
+            "trade_cooldown_hours": 1,  # 1 hour between any trades
             "min_holding_threshold": 0.08,  # Keep at least 8% in existing positions - NEW
         }
 
@@ -78,7 +78,8 @@ class CompetitionQUBOBot:
         """Dynamically adjust parameters based on competition progress"""
         days_elapsed = (datetime.now() - self.competition_start_time).days
         days_remaining = 14 - days_elapsed
-
+        #No need to be more conservative since we are catching up
+        """
         # Become more conservative in final 5 days to protect gains
         if days_remaining <= 5 and not self.hyperparameters["final_week_conservative"]:
             logger.info("🛡️ Entering final week conservative mode")
@@ -92,7 +93,7 @@ class CompetitionQUBOBot:
                     "final_week_conservative": True,
                 }
             )
-
+        """
         self.competition_days_remaining = days_remaining
 
     def emergency_circuit_breaker(self):
@@ -114,11 +115,11 @@ class CompetitionQUBOBot:
             and t.get("success", False)
         ]
 
+        
         if len(today_trades) >= self.hyperparameters["max_daily_trades"]:
             logger.error(f"🚨 DAILY LIMIT: {len(today_trades)} trades today")
             self.circuit_breaker_triggered = True
             return True
-
         # Check for rapid flipping on same assets
         recent_trades = self.performance_logger.trade_log[-10:]
         asset_activity = {}
@@ -132,7 +133,7 @@ class CompetitionQUBOBot:
                     "timestamp": trade.get("timestamp", datetime.now()),
                 }
             )
-
+        
         # Enhanced pattern detection
         for asset, trades in asset_activity.items():
             if len(trades) >= 3:
@@ -151,7 +152,7 @@ class CompetitionQUBOBot:
                         self.circuit_breaker_triggered = True
                         return True
         return False
-
+        
     def should_skip_rebalance(self, current_holdings, price_data):
         """Competition-optimized emergency checks with cooldown periods"""
         if self.emergency_circuit_breaker():
@@ -616,7 +617,6 @@ def test_competition_bot():
 if __name__ == "__main__":
     # Start competition bot
     bot = CompetitionQUBOBot(lambda_risk=0.5)
-
     try:
         bot.run_competition()
     except KeyboardInterrupt:

@@ -218,7 +218,7 @@ class CompetitionWashController:
 def _round_quantity(quantity: float, asset: str) -> float:
     """Round quantity to appropriate precision for the asset"""
     step_sizes = {
-        "BTC": 0.0001,  # 6 decimal places
+        "BTC": 0.000001,  # 6 decimal places
         "ETH": 0.0001,  # 4 decimal places
         "SOL": 0.01,  # 2 decimal places
         "LTC": 0.001,  # 3 decimal places
@@ -236,6 +236,10 @@ def _round_quantity(quantity: float, asset: str) -> float:
         "FIL": 0.001,  # 3 decimal places
         "EOS": 0.01,  # 2 decimal places
         "XTZ": 0.01,  # 2 decimal places
+        'AVAX': 0.01,
+        'ZEC': 0.001,
+        'ICP': 0.01,
+        'DOGE': 1.0
     }
 
     base_asset = asset.replace("-USD", "")

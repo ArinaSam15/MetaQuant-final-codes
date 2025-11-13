@@ -1,0 +1,44 @@
+2025-11-13 22:11:11,371 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8050
+ * Running on http://10.68.2.61:8050
+2025-11-13 22:11:11,371 - INFO - [33mPress CTRL+C to quit[0m
+2025-11-13 22:11:12,651 - WARNING - Sentiment failed for whale_net_flow: <html>
+<head><title>429 Too Many Requests</title></head>
+<body>
+<center><h1>429 Too Many Requests</h1></center>
+<hr><center>nginx/1.29.0</center>
+</body>
+</html>
+
+2025-11-13 22:11:23,490 - INFO - Fetching current portfolio...
+2025-11-13 22:11:23,753 - INFO - Market Regime: LOW_VOLATILITY ¡ú n=5
+2025-11-13 22:11:31,777 - INFO -    ADA-USD: 1.0 ¡Á $0.56 = $0.56
+2025-11-13 22:11:31,781 - INFO -    BNB-USD: 0.001 ¡Á $959.83 = $0.96
+2025-11-13 22:11:31,781 - INFO -    ETH-USD: 2.2179 ¡Á $3435.88 = $7620.44
+2025-11-13 22:11:31,781 - INFO -    ICP-USD: 1.29 ¡Á $6.13 = $7.91
+2025-11-13 22:11:31,781 - INFO -    SOL-USD: 0.009 ¡Á $153.82 = $1.38
+2025-11-13 22:11:31,781 - INFO -    UNI-USD: 0.01 ¡Á $7.82 = $0.08
+2025-11-13 22:11:31,781 - INFO -    Crypto Value: $7631.32
+2025-11-13 22:11:31,781 - INFO -    Cash Balance: $37742.48
+2025-11-13 22:11:31,781 - INFO -    TOTAL Portfolio Value: $45373.80
+2025-11-13 22:11:31,782 - INFO - Target weights: {'BTC-USD': np.float64(0.25), 'ETH-USD': np.float64(0.25), 'SOL-USD': np.float64(0.05), 'BNB-USD': np.float64(0.05), 'XRP-USD': np.float64(0.05), 'AVAX-USD': np.float64(0.05), 'LINK-USD': np.float64(0.05), 'LTC-USD': np.float64(0.1), 'UNI-USD': np.float64(0.05), 'FIL-USD': np.float64(0.05), 'ICP-USD': np.float64(0.05)}
+2025-11-13 22:11:31,782 - INFO - Current portfolio: {'ADA-USD': 1.0, 'BNB-USD': 0.001, 'ETH-USD': 2.2179, 'ICP-USD': 1.29, 'SOL-USD': 0.009, 'UNI-USD': 0.01}
+2025-11-13 22:11:31,782 - INFO - Cash balance: $37742.48
+2025-11-13 22:11:31,782 - INFO - Rebalance threshold: 35.0%
+2025-11-13 22:11:33,821 - INFO - Retrieved prices for 12 assets
+2025-11-13 22:11:33,821 - INFO -    ETH-USD: 16.8%
+2025-11-13 22:11:33,821 - INFO -    USD: 83.2%
+2025-11-13 22:11:33,822 - INFO -    BTC-USD: 25.0%
+2025-11-13 22:11:33,822 - INFO -    ETH-USD: 25.0%
+2025-11-13 22:11:33,822 - INFO -    SOL-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    BNB-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    XRP-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    AVAX-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    LINK-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    LTC-USD: 10.0%
+2025-11-13 22:11:33,822 - INFO -    UNI-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    FIL-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    ICP-USD: 5.0%
+2025-11-13 22:11:33,822 - INFO -    Daily trades: 0/3
+2025-11-13 22:11:33,822 - INFO - Fetching current portfolio...
