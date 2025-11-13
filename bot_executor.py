@@ -26,10 +26,10 @@ _MIN_ORDER_INTERVAL = 0.3  # Minimum 0.3 seconds between orders
 
 # COMPETITION ANTI-WASH HYPERPARAMETERS
 COMPETITION_CONFIG = {
-    "MIN_HOLD_HOURS": 8,  # Minimum 8 hours between buy and sell
+    "MIN_HOLD_HOURS": 0,  # Minimum 8 hours between buy and sell # Delete
     "MIN_NET_PROFIT": 0.008,  # 0.8% minimum net profit after commissions
     "MAX_DAILY_TRADES_PER_ASSET": 1,  # Only 1 round-trip per asset daily
-    "MAX_DAILY_TOTAL_TRADES": 3,  # Maximum 3 total trades per day
+    "MAX_DAILY_TOTAL_TRADES": 99,  # Maximum 3 total trades per day # No Limit on Daily Trading
     "MIN_TRADE_VALUE": 100.0,  # Minimum $100 trade size
     "COMMISSION_RATE": 0.0001,  # 0.01% per trade
     "COOLDOWN_HOURS_AFTER_SELL": 6,  # 6 hours before buying same asset

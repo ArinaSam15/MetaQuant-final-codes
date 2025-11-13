@@ -60,7 +60,7 @@ class CompetitionQUBOBot:
             "trade_threshold": 0.35,  # 35% threshold (reduced frequency) - INCREASED
             "min_hold_hours": 48,  # 48 hours between trades on same asset - INCREASED
             "min_profit_threshold": 0,  # 3% minimum profit - INCREASED #lyc update: don't need any profit threshold since it's less possible to have any profit in a short period
-            "max_daily_trades": 999,  # lyc update: No Limitation on trades per day
+            "max_daily_trades": 999,  #  update: No Limitation on trades per day
             "emergency_stop_loss": -0.05,  # Stop trading if 5% loss in 2 cycles - MORE LENIENT
             "final_week_conservative": False,
             "min_trade_value": 150.0,  # Minimum $150 trade size - INCREASED
