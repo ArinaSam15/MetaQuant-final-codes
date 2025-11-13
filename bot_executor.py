@@ -351,7 +351,7 @@ def _get_current_prices(assets: list) -> Dict[str, float]:
 
         # Convert from trading format (BTC-USD) to API format (BTC/USD)
         if "-USD" in asset:
-            pair = f"{asset.replace("-USD", "")}/USD"
+            pair = f"{asset.replace('-USD', '')}/USD"
         else:
             pair = f"{asset}/USD"
 
