@@ -615,13 +615,9 @@ def test_competition_bot():
 if __name__ == "__main__":
     # Start competition bot
     bot = CompetitionQUBOBot(lambda_risk=0.5)
-    """
     try:
         bot.run_competition()
     except KeyboardInterrupt:
         logger.info("🛑 Competition terminated")
     except Exception as e:
         logger.error(f"💥 Fatal competition error: {e}")
-    """
-    #bot.fetch_data_parallel()
-    print(data_fetcher.get_sentiment_score())
