@@ -55,17 +55,18 @@ class CompetitionQUBOBot:
         self.competition_days_remaining = 14
 
         # FIXED COMPETITION HYPERPARAMETERS - ANTI-WASH TRADING FOCUS
+                # FIXED COMPETITION HYPERPARAMETERS - UPDATED
         self.hyperparameters = {
-            "rebalance_interval": 12 * 3600,  # 12 hours base (more conservative)
-            "trade_threshold": 0.35,  # 35% threshold (reduced frequency) - INCREASED
-            "min_hold_hours": 48,  # 48 hours between trades on same asset - INCREASED
-            "min_profit_threshold": 0,  # 3% minimum profit - INCREASED #lyc update: don't need any profit threshold since it's less possible to have any profit in a short period
-            "max_daily_trades": 999,  #  update: No Limitation on trades per day
-            "emergency_stop_loss": -0.05,  # Stop trading if 5% loss in 2 cycles - MORE LENIENT
+            "rebalance_interval": 12 * 3600,  # 12 hours base
+            "trade_threshold": 0.05,  # 35% threshold 
+            "min_hold_hours": 1,  # Reduced from 48 to 1 hour
+            "min_profit_threshold": 0,  # No minimum profit
+            "max_daily_trades": 999,  # No limitation
+            "emergency_stop_loss": -0.05,  # Stop trading if 5% loss in 2 cycles
             "final_week_conservative": False,
-            "min_trade_value": 150.0,  # Minimum $150 trade size - INCREASED
+            "min_trade_value": 50.0,  # Reduced from $150 to $50
             "trade_cooldown_hours": 1,  # 1 hour between any trades
-            "min_holding_threshold": 0.08,  # Keep at least 8% in existing positions - NEW
+            "min_holding_threshold": 0.08,  # Keep at least 8% in existing positions
         }
 
         logger.info("🏆 COMPETITION QUBO Bot Initialized (2-Week Timeline)")
@@ -78,8 +79,7 @@ class CompetitionQUBOBot:
         """Dynamically adjust parameters based on competition progress"""
         days_elapsed = (datetime.now() - self.competition_start_time).days
         days_remaining = 14 - days_elapsed
-        #No need to be more conservative since we are catching up
-        """
+
         # Become more conservative in final 5 days to protect gains
         if days_remaining <= 5 and not self.hyperparameters["final_week_conservative"]:
             logger.info("🛡️ Entering final week conservative mode")
@@ -93,7 +93,7 @@ class CompetitionQUBOBot:
                     "final_week_conservative": True,
                 }
             )
-        """
+
         self.competition_days_remaining = days_remaining
 
     def emergency_circuit_breaker(self):
@@ -190,7 +190,7 @@ class CompetitionQUBOBot:
         return False
 
     def fetch_data_parallel(self):
-        """Competition-optimized data fetching with faster timeouts"""
+        """Competition-optimized data fetching with faster timeouts - FIXED VERSION"""
         try:
         # Use cached data if recent
             if (
@@ -213,16 +213,17 @@ class CompetitionQUBOBot:
                 )
 
             # Faster timeouts for competition responsiveness
-                market_result = market_future.result(timeout=20)
-                sentiment_scores = sentiment_future.result(timeout=10)
+                market_result = market_future.result(timeout=30)  # Increased timeout
+                sentiment_scores = sentiment_future.result(timeout=15)
 
-        # Unpack the market data result
+        # Unpack the market data result - FIXED HANDLING
             if market_result is not None:
                 price_data, successful_assets = market_result
             else:
+                logger.error("Market data result is None")
                 price_data, successful_assets = None, []
 
-        # Validate data
+        # Validate data - FIXED VALIDATION
             if price_data is not None and not price_data.empty and len(price_data) > 10:
             # Cache successful data
                 self.last_successful_data = {
@@ -230,25 +231,29 @@ class CompetitionQUBOBot:
                     "sentiment_scores": sentiment_scores,
                     "timestamp": datetime.now(),
                 }
+                logger.info(f"✅ Data fetch successful: {price_data.shape[1]} assets, {price_data.shape[0]} periods")
                 return price_data, sentiment_scores
             else:
                 logger.warning("⚠️ Insufficient price data received")
                 if self.last_successful_data:
+                    logger.info("🔄 Using cached data")
                     return (
                         self.last_successful_data["price_data"],
                         self.last_successful_data["sentiment_scores"],
                     )
+                logger.error("❌ No cached data available")
                 return None, None
 
         except Exception as e:
             logger.error(f"❌ Data fetch failed: {e}")
             if self.last_successful_data:
+                logger.info("🔄 Falling back to cached data")
                 return (
                     self.last_successful_data["price_data"],
                     self.last_successful_data["sentiment_scores"],
                 )
+            logger.error("❌ No cached data available for fallback")
             return None, None
-
     def calculate_total_portfolio_value(self, holdings, price_data, cash_balance):
         """FIXED: Calculate total portfolio value without double-counting"""
         try:
@@ -294,33 +299,26 @@ class CompetitionQUBOBot:
     def log_trade_results(self, rebalance_result):
         """FIXED: Log trade results with proper error handling"""
         try:
-            if rebalance_result.get("sell_orders"):
-                for order in rebalance_result["sell_orders"]:
-                # ENSURE ASSET KEY EXISTS
-                    asset = order.get("asset", "UNKNOWN_ASSET")
-                    self.performance_logger.log_trade(
-                        asset=asset,
-                        action="SELL",
-                        quantity=order.get("quantity", 0),
-                        price=order.get("price", 0),
-                        success=order.get("success", False),
-                        error_msg=order.get("error", None),
-                    )
-
-            if rebalance_result.get("buy_orders"):
-                for order in rebalance_result["buy_orders"]:
-                    asset = order.get("asset", "UNKNOWN_ASSET")  # SAME FIX HERE
-                    self.performance_logger.log_trade(
-                        asset=asset,
-                        action="BUY", 
-                        quantity=order.get("quantity", 0),
-                        price=order.get("price", 0),
-                        success=order.get("success", False),
-                        error_msg=order.get("error", None),
-                    )
+        # Handle all orders with safe asset access
+            all_orders = rebalance_result.get("sell_orders", []) + rebalance_result.get("buy_orders", [])
+        
+            for order in all_orders:
+            # Safe asset access with fallback
+                asset = order.get("asset")
+                if not asset:  # Skip if asset is missing
+                    logger.warning(f"Skipping order logging - missing asset: {order}")
+                    continue
+                
+                self.performance_logger.log_trade(
+                    asset=asset,
+                    action=order.get("action", "UNKNOWN"),
+                    quantity=order.get("quantity", 0),
+                    price=order.get("price", 0),
+                    success=order.get("success", False),
+                    error_msg=order.get("error", None),
+                )
         except Exception as e:
             logger.error(f"Error logging trade results: {e}")
-
     def run_trading_cycle(self):
         """Competition-optimized trading cycle with anti-wash protection"""
         # Update competition parameters
@@ -333,16 +331,16 @@ class CompetitionQUBOBot:
         cycle_start = time.time()
 
         try:
-        # 1. Fetch data in parallel
+                # 1. Fetch data in parallel
             logger.info("📥 Fetching competition data...")
             data_result = self.fetch_data_parallel()
 
-            if data_result is None:
+            if data_result is None or data_result[0] is None:
                 logger.error("❌ No market data available")
                 self.consecutive_failures += 1
                 return False, 10800  # Use consistent 3 hours
 
-        # Unpack the tuple correctly
+        # Unpack the tuple correctly - FIXED
             price_data, sentiment_scores = data_result
 
             if price_data is None or price_data.empty:
@@ -617,9 +615,13 @@ def test_competition_bot():
 if __name__ == "__main__":
     # Start competition bot
     bot = CompetitionQUBOBot(lambda_risk=0.5)
+    """
     try:
         bot.run_competition()
     except KeyboardInterrupt:
         logger.info("🛑 Competition terminated")
     except Exception as e:
         logger.error(f"💥 Fatal competition error: {e}")
+    """
+    #bot.fetch_data_parallel()
+    print(data_fetcher.get_sentiment_score())

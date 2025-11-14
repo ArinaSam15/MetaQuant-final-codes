@@ -4,6 +4,7 @@ import numpy as np
 import logging
 from pyqubo import Array
 import dimod
+import data_fetcher
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +112,9 @@ class AdaptiveQUBOOptimizer:
             momentum_alpha = 0.6 * returns_36h + 0.4 * returns_96h
 
             # Sentiment
-            sentiment_alpha = sentiment_scores.get(asset, 0.0)
-
+            sentiment_alpha = sentiment_scores.iloc[-1].get('sentiment_score', 0.0)
+            #sentiment_alpha = sentiment_scores.get(asset,0.0)
+            #print(f'###check:{sentiment_alpha}')
             # Mean Reversion with longer MA
             current_price = price_data[asset].iloc[-1]
             ma_36h = price_data[asset].rolling(36).mean().iloc[-1]
@@ -264,3 +266,9 @@ class AdaptiveQUBOOptimizer:
 def get_target_assets(price_data, sentiment_scores, base_lambda_risk=0.7):
     optimizer = AdaptiveQUBOOptimizer(base_lambda_risk=base_lambda_risk)
     return optimizer.select_optimal_portfolio(price_data, sentiment_scores)
+
+"""
+sentiment_scores = data_fetcher.get_sentiment_score()
+price_data,successful_asset = data_fetcher.get_all_market_data()
+print(get_target_assets(price_data,sentiment_scores))
+"""

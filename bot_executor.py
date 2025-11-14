@@ -26,13 +26,13 @@ _MIN_ORDER_INTERVAL = 0.3  # Minimum 0.3 seconds between orders
 
 # COMPETITION ANTI-WASH HYPERPARAMETERS
 COMPETITION_CONFIG = {
-    "MIN_HOLD_HOURS": 0,  # Minimum 8 hours between buy and sell # Delete
-    "MIN_NET_PROFIT": 0.008,  # 0.8% minimum net profit after commissions
-    "MAX_DAILY_TRADES_PER_ASSET": 1,  # Only 1 round-trip per asset daily
-    "MAX_DAILY_TOTAL_TRADES": 99,  # Maximum 3 total trades per day # No Limit on Daily Trading
-    "MIN_TRADE_VALUE": 100.0,  # Minimum $100 trade size
-    "COMMISSION_RATE": 0.0001,  # 0.01% per trade
-    "COOLDOWN_HOURS_AFTER_SELL": 6,  # 6 hours before buying same asset
+    "MIN_HOLD_HOURS": 1,  # Reduced from 8 hours to 1 hour for competition
+    "MIN_NET_PROFIT": 0.001,  # Reduced from 0.8% to 0.1%
+    "MAX_DAILY_TRADES_PER_ASSET": 2,  # Increased from 1 to 2
+    "MAX_DAILY_TOTAL_TRADES": 99,
+    "MIN_TRADE_VALUE": 50.0,  # Reduced from $100 to $50
+    "COMMISSION_RATE": 0.0001,
+    "COOLDOWN_HOURS_AFTER_SELL": 2,  # Reduced from 6 to 2 hours
 }
 
 
@@ -81,68 +81,51 @@ class CompetitionWashController:
             return False, f"Invalid action: {action}"
 
     def _validate_sell_trade(self, asset, current_price, quantity):
-        """Validate sell trade against wash trading rules"""
+        """Validate sell trade against wash trading rules - FIXED VERSION"""
         asset_history = self.trade_history.get(asset, [])
         today = datetime.now().date()
 
-    # Allow selling holdings that don't have recent buy history (existing holdings)
+        # Allow selling holdings that don't have recent buy history (existing holdings)
         if not any(t["action"] == "BUY" for t in asset_history):
             return True, "Selling existing holding (no recent buy history)"
-    # Find corresponding buy trades from today OR existing holdings from previous days
-        today_buys = [
-            t
-            for t in asset_history
-            if t["timestamp"].date() == today and t["action"] == "BUY"
-        ]
+    
+        # Find ALL buy trades (not just today's)
+        all_buy_trades = [t for t in asset_history if t["action"] == "BUY"]
+    
+        if not all_buy_trades:
+            return False, "No corresponding BUY trade found"
 
-    # If no buys today but we have the asset, allow selling (it's from previous days)
-        if not today_buys:
-        # Check if we have any history of this asset (means it's from before today)
-            if asset_history:
-            # Allow selling existing holdings with minimum hold time check
-                oldest_hold = min([t["timestamp"] for t in asset_history if t["action"] == "BUY"])
-                hold_time = datetime.now() - oldest_hold
-                min_hold_seconds = COMPETITION_CONFIG["MIN_HOLD_HOURS"] * 3600
-            
-                if hold_time.total_seconds() >= min_hold_seconds:
-                    return True, "Selling existing holding from previous day"
-                else:
-                    hours_held = hold_time.total_seconds() / 3600
-                    min_hours = COMPETITION_CONFIG["MIN_HOLD_HOURS"]
-                    return False, f"Hold time {hours_held:.1f}h < minimum {min_hours}h"
-            else:
-                return False, "No corresponding BUY trade found"
+        # Use the most recent buy trade (regardless of date)
+        latest_buy = max(all_buy_trades, key=lambda x: x["timestamp"])
 
-    # Use the most recent buy
-        latest_buy = max(today_buys, key=lambda x: x["timestamp"])
+        # Check hold time - only apply to buys from today
+        if latest_buy["timestamp"].date() == today:
+            hold_time = datetime.now() - latest_buy["timestamp"]
+            min_hold_seconds = COMPETITION_CONFIG["MIN_HOLD_HOURS"] * 3600
 
-    # Check hold time
-        hold_time = datetime.now() - latest_buy["timestamp"]
-        min_hold_seconds = COMPETITION_CONFIG["MIN_HOLD_HOURS"] * 3600
+            if hold_time.total_seconds() < min_hold_seconds:
+                hours_held = hold_time.total_seconds() / 3600
+                min_hours = COMPETITION_CONFIG["MIN_HOLD_HOURS"]
+                return False, f"Hold time {hours_held:.1f}h < minimum {min_hours}h"
 
-        if hold_time.total_seconds() < min_hold_seconds:
-            hours_held = hold_time.total_seconds() / 3600
-            min_hours = COMPETITION_CONFIG["MIN_HOLD_HOURS"]
-            return False, f"Hold time {hours_held:.1f}h < minimum {min_hours}h"
+            # Check profitability including commissions (only for today's buys)
+            commission_cost = current_price * COMPETITION_CONFIG["COMMISSION_RATE"] * 2
+            buy_price = latest_buy["price"]
+            gross_profit = current_price - buy_price
+            net_profit = gross_profit - commission_cost
+            net_profit_pct = net_profit / buy_price
 
-    # Check profitability including commissions
-        commission_cost = current_price * COMPETITION_CONFIG["COMMISSION_RATE"] * 2
-        buy_price = latest_buy["price"]
-        gross_profit = current_price - buy_price
-        net_profit = gross_profit - commission_cost
-        net_profit_pct = net_profit / buy_price
+            min_profit = COMPETITION_CONFIG["MIN_NET_PROFIT"]
 
-        min_profit = COMPETITION_CONFIG["MIN_NET_PROFIT"]
+            if net_profit_pct < min_profit:
+                return False, f"Net profit {net_profit_pct:.3%} < minimum {min_profit:.3%}"
 
-        if net_profit_pct < min_profit:
-            return False, f"Net profit {net_profit_pct:.3%} < minimum {min_profit:.3%}"
-
-    # Check if we've already traded this asset today
+        # Check if we've already traded this asset today
         today_trades = [t for t in asset_history if t["timestamp"].date() == today]
         if len(today_trades) >= COMPETITION_CONFIG["MAX_DAILY_TRADES_PER_ASSET"]:
             return False, f"Daily trade limit for {asset} reached"
 
-        return True, f"OK - Profit: {net_profit_pct:.3%}"
+        return True, "OK - Rebalancing sell approved"
 
     def _validate_buy_trade(self, asset, current_price, quantity):
         """Validate buy trade against wash trading rules"""
@@ -181,6 +164,7 @@ class CompetitionWashController:
 
         self.trade_history[base_asset].append(
             {
+                'asset': asset,
                 "timestamp": datetime.now(),
                 "action": action,
                 "price": price,
@@ -197,7 +181,7 @@ class CompetitionWashController:
             t for t in self.trade_history[base_asset] if t["timestamp"] > cutoff
         ]
 
-        logger.info(f"📝 Recorded {action} {quantity} {base_asset} @ ${price:.2f}")
+        logger.info(f"Recorded {action} {quantity} {base_asset} @ ${price:.2f}")
 
     def get_trade_summary(self):
         """Get current trade statistics"""
@@ -218,24 +202,24 @@ class CompetitionWashController:
 def _round_quantity(quantity: float, asset: str) -> float:
     """Round quantity to appropriate precision for the asset"""
     step_sizes = {
-        "BTC": 0.000001,  # 6 decimal places
-        "ETH": 0.0001,  # 4 decimal places
-        "SOL": 0.01,  # 2 decimal places
-        "LTC": 0.001,  # 3 decimal places
-        "BNB": 0.001,  # 3 decimal places
-        "XRP": 0.1,  # 1 decimal place
-        "ADA": 1.0,  # 0 decimal places
-        "DOT": 0.01,  # 2 decimal places
-        "LINK": 0.01,  # 2 decimal places
-        "ATOM": 0.01,  # 2 decimal places
-        "ETC": 0.001,  # 3 decimal places
-        "XLM": 0.1,  # 1 decimal place
-        "ALGO": 0.1,  # 1 decimal place
-        "UNI": 0.01,  # 2 decimal places
-        "AAVE": 0.001,  # 3 decimal places
-        "FIL": 0.001,  # 3 decimal places
-        "EOS": 0.01,  # 2 decimal places
-        "XTZ": 0.01,  # 2 decimal places
+        "BTC": 0.00001,   # 5 decimal places
+        "ETH": 0.0001,    # 4 decimal places  
+        "SOL": 0.01,      # 2 decimal places
+        "LTC": 0.001,     # 3 decimal places
+        "BNB": 0.001,     # 3 decimal places
+        "XRP": 0.1,       # 1 decimal place
+        "ADA": 1.0,       # 0 decimal places
+        "DOT": 0.01,      # 2 decimal places
+        "LINK": 0.01,     # 2 decimal places
+        "ATOM": 0.01,     # 2 decimal places
+        "ETC": 0.001,     # 3 decimal places
+        "XLM": 1.0,       # CHANGED: 0 decimal places (was 0.1)
+        "ALGO": 0.1,      # 1 decimal place
+        "UNI": 0.01,      # 2 decimal places
+        "AAVE": 0.001,    # 3 decimal places
+        "FIL": 0.001,     # 3 decimal places
+        "EOS": 0.01,      # 2 decimal places
+        "XTZ": 0.01,      # 2 decimal places
         'AVAX': 0.01,
         'ZEC': 0.001,
         'ICP': 0.01,
@@ -390,11 +374,28 @@ def _place_order(
     # Convert from trading format (BTC-USD) to API format (BTC/USD)
     if "-USD" in pair_or_coin:
         pair = f"{pair_or_coin.replace('-USD', '')}/USD"
+        base_asset = pair_or_coin.replace('-USD', '')
     else:
         pair = f"{pair_or_coin}/USD"
+        base_asset = pair_or_coin
 
     # Round quantity to appropriate precision
     rounded_quantity = _round_quantity(quantity, pair_or_coin)
+    
+    # Validate minimum quantity after rounding
+    step_sizes = {
+        "BTC": 0.00001, "ETH": 0.0001, "SOL": 0.01, "LTC": 0.001, 
+        "BNB": 0.001, "XRP": 0.1, "ADA": 1.0, "DOT": 0.01, 
+        "LINK": 0.01, "ATOM": 0.01, "ETC": 0.001, "XLM": 0.1,
+        "ALGO": 0.1, "UNI": 0.01, "AAVE": 0.001, "FIL": 0.001,
+        "EOS": 0.01, "XTZ": 0.01, 'AVAX': 0.01, 'ZEC': 0.001,
+        'ICP': 0.01, 'DOGE': 1.0
+    }
+    
+    min_quantity = step_sizes.get(base_asset, 0.001)
+    if rounded_quantity < min_quantity:
+        logger.error(f"❌ Quantity {rounded_quantity} below minimum {min_quantity} for {base_asset}")
+        return None
 
     # Rate limiting
     current_time = time.time()
@@ -455,7 +456,7 @@ def _place_order(
         return None
 
 
-def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold=0.12):
+def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold=0.05):
     """
     Competition-optimized rebalance with strict anti-wash controls
     """
@@ -523,60 +524,91 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
         for asset, weight in target_weights.items():
             logger.info(f"   {asset}: {weight:.1%}")
 
-        # Step 3: Calculate rebalancing needs
+        # Step 3: Calculate rebalancing needs - FIXED DUPLICATE VERSION
         rebalance_actions = []
         logger.info("🧮 Calculating rebalancing actions...")
 
+        # Track assets we're already handling to avoid duplicates
+        handled_assets = set()
+
+        # Handle assets that need BUYING (in target but underweight)
         for asset, target_weight in target_weights.items():
             if asset == "USD":
                 continue
-
+                
             current_weight = current_weights.get(asset, 0.0)
-            weight_diff = current_weight - target_weight
-            abs_diff = abs(weight_diff)
-
-            # Check if outside threshold
-            if abs_diff > threshold:
-                action_type = "SELL" if weight_diff > 0 else "BUY"
-
-                # Calculate USD value to rebalance
-                usd_value_to_rebalance = abs(weight_diff) * total_value
-
-                # Calculate quantity to trade
+            weight_diff = target_weight - current_weight  # POSITIVE means BUY
+            
+            # Check if we need to BUY this asset
+            if weight_diff > threshold:
+                usd_value_to_buy = weight_diff * total_value
+                
                 if asset in prices and prices[asset] > 0:
-                    quantity = usd_value_to_rebalance / prices[asset]
-
-                    # Apply minimum quantity checks
-                    if quantity > 0.000001:
+                    quantity = usd_value_to_buy / prices[asset]
+                    
+                    if quantity > 0.000001:  # Minimum quantity check
                         action = {
                             "asset": asset,
-                            "action": action_type,
+                            "action": "BUY", 
                             "current_weight": current_weight,
                             "target_weight": target_weight,
                             "weight_diff": weight_diff,
-                            "usd_value": usd_value_to_rebalance,
+                            "usd_value": usd_value_to_buy,
                             "quantity": quantity,
                             "price": prices[asset],
                         }
                         rebalance_actions.append(action)
-
+                        handled_assets.add(asset)
+                        
                         logger.info(
                             f"   {asset}: {current_weight:.1%} → {target_weight:.1%} "
-                            f"({action_type} {quantity:.6f})"
+                            f"(BUY {quantity:.6f} ${usd_value_to_buy:.2f})"
                         )
 
-        # Also handle assets that need to be completely sold (not in target weights)
+        # Handle assets that need SELLING (overweight or not in target) - FIXED DUPLICATES
         for asset, current_weight in current_weights.items():
-            if (
-                asset not in target_weights
-                and asset != "USD"
-                and current_weight > threshold
-                and asset in prices
-                and prices[asset] > 0
-            ):
+            if asset == "USD" or asset in handled_assets:
+                continue
+                
+            target_weight = target_weights.get(asset, 0.0)
+            weight_diff = current_weight - target_weight  # POSITIVE means SELL
+            
+            # Check if we need to SELL this asset
+            if weight_diff > threshold:
+                usd_value_to_sell = weight_diff * total_value
+                
+                if asset in prices and prices[asset] > 0:
+                    quantity = usd_value_to_sell / prices[asset]
+                    
+                    if quantity > 0.000001:
+                        action = {
+                            "asset": asset,
+                            "action": "SELL",
+                            "current_weight": current_weight,
+                            "target_weight": target_weight,
+                            "weight_diff": weight_diff,
+                            "usd_value": usd_value_to_sell,
+                            "quantity": quantity,
+                            "price": prices[asset],
+                        }
+                        rebalance_actions.append(action)
+                        handled_assets.add(asset)
+                        
+                        logger.info(
+                            f"   {asset}: {current_weight:.1%} → {target_weight:.1%} "
+                            f"(SELL {quantity:.6f} ${usd_value_to_sell:.2f})"
+                        )
+        
+        # Also handle assets that need to be completely sold (not in target weights) - FIXED
+        for asset, current_weight in current_weights.items():
+            if (asset not in target_weights and asset != "USD" 
+                and asset not in handled_assets  # PREVENT DUPLICATES
+                and current_weight > 0.01  # Only if significant holding
+                and asset in prices and prices[asset] > 0):
+                
                 usd_value = current_weight * total_value
                 quantity = usd_value / prices[asset]
-
+                
                 action = {
                     "asset": asset,
                     "action": "SELL",
@@ -588,13 +620,14 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
                     "price": prices[asset],
                 }
                 rebalance_actions.append(action)
-
+                handled_assets.add(asset)
+                
                 logger.info(
                     f"   {asset}: {current_weight:.1%} → 0.0% "
                     f"(SELL {quantity:.6f} - not in target)"
                 )
 
-        logger.info(f"📋 Initial rebalance actions: {len(rebalance_actions)}")
+        logger.info(f"📋 Rebalance actions: {len(rebalance_actions)}")
 
         # Step 4: APPLY STRICT ANTI-WASH FILTERING
         filtered_actions = []
@@ -626,13 +659,7 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
         rebalance_actions = filtered_actions
         logger.info(f"📊 After anti-wash filtering: {len(rebalance_actions)} actions")
 
-        # Step 5: Get updated cash balance
-        logger.info("🔄 Getting updated cash balance...")
-        updated_portfolio, updated_cash = get_current_portfolio()
-        rebalance_result["final_cash_balance"] = updated_cash
-        logger.info(f"💰 Updated cash balance: ${updated_cash:.2f}")
-
-        # Step 6: Execute SELL orders first
+        # Step 5: Execute SELL orders first
         sell_orders = [
             action for action in rebalance_actions if action["action"] == "SELL"
         ]
@@ -644,7 +671,7 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
                 result = _place_order(order["asset"], "SELL", order["quantity"])
 
                 order_result = {
-                    "asset": order["asset"],
+                    "asset": order["asset"],  # This should always be present
                     "action": "SELL",
                     "quantity": order["quantity"],
                     "price": order["price"],
@@ -680,17 +707,26 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
 
             logger.info(f"✅ Executed {executed_sells} sell orders")
 
-        # Step 7: Execute BUY orders
+        # Step 6: Get updated cash balance AFTER sells
+        logger.info("🔄 Getting updated cash balance...")
+        time.sleep(2)  # Wait for sells to settle
+        updated_portfolio, updated_cash = get_current_portfolio()
+        rebalance_result["final_cash_balance"] = updated_cash
+        logger.info(f"💰 Updated cash balance: ${updated_cash:.2f}")
+
+        # Step 7: Execute BUY orders with better cash management
         buy_orders = [
             action for action in rebalance_actions if action["action"] == "BUY"
         ]
         if buy_orders:
-            # Recalculate buy quantities based on actual available cash
+            # Recalculate buy quantities based on ACTUAL available cash
+            # Reserve 2% for fees and price fluctuations
+            available_cash = updated_cash * 0.98
             total_buy_value = sum(order["usd_value"] for order in buy_orders)
 
-            if total_buy_value > updated_cash:
+            if total_buy_value > available_cash:
                 # Scale down buy orders proportionally
-                scale_factor = updated_cash / total_buy_value
+                scale_factor = available_cash / total_buy_value
                 logger.warning(
                     f"⚠️ Insufficient cash. Scaling buy orders by {scale_factor:.1%}"
                 )
@@ -699,6 +735,9 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
                 for order in buy_orders:
                     adjusted_usd = order["usd_value"] * scale_factor
                     adjusted_quantity = adjusted_usd / prices[order["asset"]]
+                    
+                    # Round down to avoid overspending
+                    adjusted_quantity = _round_quantity(adjusted_quantity, order["asset"])
 
                     adjusted_order = order.copy()
                     adjusted_order["usd_value"] = adjusted_usd
@@ -711,7 +750,6 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
                     )
 
                 buy_orders = adjusted_buy_orders
-
             logger.info(f"📥 Executing {len(buy_orders)} BUY orders")
 
             executed_buys = 0
@@ -728,7 +766,7 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
                 result = _place_order(order["asset"], "BUY", order["quantity"])
 
                 order_result = {
-                    "asset": order["asset"],
+                    "asset": order["asset"],  # Add this line
                     "action": "BUY",
                     "quantity": order["quantity"],
                     "price": order["price"],
@@ -798,7 +836,6 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
         rebalance_result["errors"].append(f"Critical error: {str(e)}")
         return rebalance_result
 
-
 def test_anti_wash_controls():
     """Test the anti-wash controls"""
     print("🧪 Testing Anti-Wash Controls")
@@ -834,6 +871,7 @@ def test_anti_wash_controls():
 
 
 if __name__ == "__main__":
+    """
     # Run anti-wash tests
     test_anti_wash_controls()
 
@@ -841,3 +879,8 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     portfolio, cash = get_current_portfolio()
     print(f"Portfolio: {len(portfolio)} assets, Cash: ${cash:.2f}")
+    
+    wb = CompetitionWashController()
+    wb.record_trade('BCT','BUY',3,3)
+    print(wb.get_trade_summary())
+    """

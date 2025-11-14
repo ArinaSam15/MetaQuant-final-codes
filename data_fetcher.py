@@ -179,10 +179,14 @@ def get_sentiment_score(sentiments={'whale_net_flow','whale_inflow_count','chain
     try:
         df = get_horus_sentiment(sentiments, interval = '1d', duration = 50, timestamp=False)
         if df is None or df.empty:
-            # Return mock sentiment data
-            return pd.DataFrame({'sentiment_score': [random.uniform(-1, 1) for _ in range(50)]})
+            logger.warning("⚠️ Using mock sentiment data due to API limits")
+            return pd.DataFrame({'sentiment_score': [random.uniform(-0.5, 0.5) for _ in range(50)]})
         
         df = df.dropna()
+        if len(df) < 10:  # If insufficient data, use mock
+            logger.warning("⚠️ Insufficient sentiment data, using mock")
+            return pd.DataFrame({'sentiment_score': [random.uniform(-0.5, 0.5) for _ in range(50)]})
+            
         features = df.columns
 
         scaler = StandardScaler()
@@ -197,4 +201,4 @@ def get_sentiment_score(sentiments={'whale_net_flow','whale_inflow_count','chain
         return df[['sentiment_score']]
     except Exception as e:
         logger.error(f"Sentiment failed, using mock: {e}")
-        return pd.DataFrame({'sentiment_score': [random.uniform(-1, 1) for _ in range(50)]})
+        return pd.DataFrame({'sentiment_score': [random.uniform(-0.5, 0.5) for _ in range(50)]})
