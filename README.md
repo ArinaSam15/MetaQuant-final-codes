@@ -67,11 +67,11 @@ Once the optimal basket of assets is identified:
 MODULE 5: Smart Order Execution Pipeline (The "Executor")
 ---------------------------------------------------------
 
-The bot_executor.py module handles the precise mechanics of trade execution, transforming quantum-optimized portfolio allocations into real market orders.
+The **bot_executor.py** module handles the precise mechanics of trade execution, transforming quantum-optimized portfolio allocations into real market orders.
 
 * Core Execution Features:
-  **-Rate-Limited Order Placement:** Maintains **0.3-second intervals** between orders to prevent API throttling.
-  **-Precision Quantity Rounding:** Asset-specific rounding logic respecting each cryptocurrency's minimum trade increments
+  - **Rate-Limited Order Placement:** Maintains **0.3-second intervals** between orders to prevent API throttling.
+  - **Precision Quantity Rounding:** Asset-specific rounding logic respecting each cryptocurrency's minimum trade increments
 
 ```python
 step_sizes = {
@@ -83,13 +83,13 @@ step_sizes = {
     # ... 17+ assets with precise step sizes
 }
 ```
-  **-Adaptive Cash Management:**  Intelligent cash reservation system that scales buy orders proportionally when insufficient funds are available, maintaining portfolio balance
+  - **Adaptive Cash Management:**  Intelligent cash reservation system that scales buy orders proportionally when insufficient funds are available, maintaining portfolio balance
 
 ---------------------------------------------------------
 MODULE 6: Anti-Wash Trading Controller (The "Compliance")
 ---------------------------------------------------------
 
-The CompetitionWashController class implements a comprehensive rule-based system to prevent wash trading and ensure competition compliance:
+The **CompetitionWashController** class implements a comprehensive rule-based system to prevent wash trading and ensure competition compliance:
 
 ```python
 COMPETITION_CONFIG = {
@@ -103,17 +103,17 @@ COMPETITION_CONFIG = {
 }
 ```
 * Advanced Compliance Features:
-  **-Hold Time Enforcement:** Prevents selling assets within 1 hour of purchase (competition-optimized)
-  **-Profitability Validation:** Blocks unprofitable trades after accounting for **0.01% commission costs**
-  **-Daily Trade Limits** Enforces per-asset and total daily trading caps
-  **-Cooldown Periods:** Implements 2-hour cooling periods after sell operations
-  **-Trade Pattern Detection:** Identifies and blocks potential wash trading patterns across asset histories
+  - **Hold Time Enforcement:** Prevents selling assets within 1 hour of purchase (competition-optimized)
+  - **Profitability Validation:** Blocks unprofitable trades after accounting for **0.01% commission costs**
+  - **Daily Trade Limits** Enforces per-asset and total daily trading caps
+  - **Cooldown Periods:** Implements 2-hour cooling periods after sell operations
+  - **Trade Pattern Detection:** Identifies and blocks potential wash trading patterns across asset histories
 
 -----------------------------------------------------------
 MODULE 7: Portfolio Rebalancing Engine (The "Orchestrator")
 -----------------------------------------------------------
 
-The execute_rebalance function implements a sophisticated seven-stage process that transforms quantum-optimized allocations into executable trades:
+The **execute_rebalance** function implements a sophisticated seven-stage process that transforms quantum-optimized allocations into executable trades:
 
 ```python
 def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold=0.05):
@@ -127,11 +127,11 @@ def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold
 ```
 
 * Rebalancing Innovations:
-  **Sell-First Strategy:** Executes all sell orders before buys to maximize available cash
-  **Dynamic Cash Scaling:** Recalculates buy quantities based on actual post-sell cash balance
-  **Commission-Aware Trading:** Factors in 0.01% commission costs in profitability calculations
-  **Real-time Portfolio Synchronization:** Verifies cash balances between sell and buy phases
-  **Error-Resilient Execution:** Comprehensive exception handling with detailed logging
+  - **Sell-First Strategy:** Executes all sell orders before buys to maximize available cash
+  - **Dynamic Cash Scaling:** Recalculates buy quantities based on actual post-sell cash balance
+  - **Commission-Aware Trading:** Factors in 0.01% commission costs in profitability calculations
+  - **Real-time Portfolio Synchronization:** Verifies cash balances between sell and buy phases
+  - **Error-Resilient Execution:** Comprehensive exception handling with detailed logging
 
 
 -------------------------------------------------------
@@ -139,12 +139,12 @@ MODULE 8: Production Reliability (The "Infrastructure")
 -------------------------------------------------------
 
 * Enterprise-Grade System Features:
-  **Secure Authentication:** HMAC-SHA256 signature generation for all API requests
-  **Robust Error Handling:** Intelligent retry logic for network failures and rate limits
-  **Portfolio Synchronization:** Ensures consistent state between optimization and execution
-  **Circuit Breaker Patterns:** Emergency stops for excessive losses or trading anomalies
-  **Comprehensive Logging:** Detailed trade execution records for debugging and compliance
-  **Competition Timeline Adaptation:** Integrated with main trading loop for time-based strategy adjustments
+  - **Secure Authentication:** HMAC-SHA256 signature generation for all API requests
+  - **Robust Error Handling:** Intelligent retry logic for network failures and rate limits
+  - **Portfolio Synchronization:** Ensures consistent state between optimization and execution
+  - **Circuit Breaker Patterns:** Emergency stops for excessive losses or trading anomalies
+  - **Comprehensive Logging:** Detailed trade execution records for debugging and compliance
+  - **Competition Timeline Adaptation:** Integrated with main trading loop for time-based strategy adjustments
 
 This multi-module execution engine ensures quantum-inspired portfolio optimizations translate into compliant, high-performance trades while maintaining strict adherence to competition regulations and the strategic integrity of the Dynamic Alpha-QUBO approach.
 
