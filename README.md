@@ -13,7 +13,7 @@ Avantage of Dynamic Alpha-QUBO: the optimum between reward and risk with instrin
 --------------------------------------------------------------------------------------------------------------
 * The optimum is the **minimized Hamiltonian** of the system
 
-Unlike traditional bots that greedily chase high returns, our system explicitly models the trade-off between **Alpha (Reward)** and **Correlation (Risk)** as an **energy minimization problem**. The system operates as a **closed-loop control system** involving four key modules working in tandem:
+Unlike traditional bots that greedily chase high returns, our system explicitly models the trade-off between **Alpha (Reward)** and **Correlation (Risk)** as an **energy minimization problem**. The system operates as a **closed-loop control system** involving 9 key modules working in tandem:
 
 ----------------------------------------------------
 MODULE 1: Market Regime Detection (The "Controller")
