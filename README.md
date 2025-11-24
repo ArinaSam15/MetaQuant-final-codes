@@ -69,11 +69,11 @@ MODULE 5: Execution Engine & Anti-Wash Trading (The "Trader")
 
 As the trading execution specialist, I implemented the critical bot_executor.py module that transforms quantum-optimized portfolio allocations into real trades while maintaining strict competition compliance.
 
-#Smart Order Execution Pipeline
+# Smart Order Execution Pipeline
 **-Rate-Limited Order Placement:** Maintains **0.3-second intervals** between orders to prevent API throttling.
 **-Precision Quantity Rounding:** Asset-specific rounding logic respecting each cryptocurrency's minimum trade increments
 
-'''python
+```python
 step_sizes = {
     "BTC": 0.00001,    # 5 decimal places
     "ETH": 0.0001,     # 4 decimal places  
@@ -82,14 +82,14 @@ step_sizes = {
     "ADA": 1.0,        # 0 decimal places
     # ... 17+ assets with precise step sizes
 }
-'''
+```
 
 **-Adaptive Cash Management:** Intelligent cash scaling that recalculates buy orders based on actual post-sell balances
 
-#Competition-Optimized Anti-Wash Controller
+# Competition-Optimized Anti-Wash Controller
 The CompetitionWashController implements a sophisticated rule-based system:
 
-'''python
+```python
 COMPETITION_CONFIG = {
     "MIN_HOLD_HOURS": 1,           # Competition-optimized from 8 hours
     "MIN_NET_PROFIT": 0.001,       # 0.1% minimum profit threshold
@@ -99,15 +99,15 @@ COMPETITION_CONFIG = {
     "COMMISSION_RATE": 0.0001,     # 0.01% commission awareness
     "COOLDOWN_HOURS_AFTER_SELL": 2, # Strategic cooling periods
 }
-'''
-##Key Anti-Wash Innovations:
+```
+## Key Anti-Wash Innovations:
 
 **Smart Hold Time Enforcement:** Differentiates between existing holdings and recent purchases
 **Commission-Aware Profitability:** Validates net profit after accounting for round-trip trading costs
 **Dynamic Cooldown Management:** 2-hour cooling periods after sell operations
 **Trade Pattern Intelligence:** Detects and blocks potential wash trading patterns
 
-#Seven-Stage Rebalancing Engine
+# Seven-Stage Rebalancing Engine
 
 The execute_rebalance function implements:
 
@@ -119,7 +119,7 @@ The execute_rebalance function implements:
 **6. Cash-Scaled BUY Execution**
 **7. Comprehensive Performance Logging**
 
-#Production-Grade Reliability
+# Production-Grade Reliability
 
 **-Secure Authentication:** HMAC-SHA256 signature generation for all API requests
 **-Robust Error Handling:** Intelligent retry logic for network failures
