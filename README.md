@@ -63,13 +63,13 @@ Once the optimal basket of assets is identified:
 * Trading: bot_executor.py calculates the delta between the current portfolio and the target state, executing the necessary BUY and SELL orders via the Roostoo API.
 * Logging: Every decision (from the detected regime to the final energy state of the QUBO solver) is recorded in performance_logger.py for post-trade analysis and strategy tuning.
 
--------------------------------------------------------------
-MODULE 5: Execution Engine & Anti-Wash Trading (The "Trader")
--------------------------------------------------------------
+---------------------------------------------------------
+MODULE 5: Smart Order Execution Pipeline (The "Executor")
+---------------------------------------------------------
 
-As the trading execution specialist, I implemented the critical bot_executor.py module that transforms quantum-optimized portfolio allocations into real trades while maintaining strict competition compliance.
+The bot_executor.py module handles the precise mechanics of trade execution, transforming quantum-optimized portfolio allocations into real market orders.
 
-## Smart Order Execution Pipeline
+* Core Execution Features:
 **-Rate-Limited Order Placement:** Maintains **0.3-second intervals** between orders to prevent API throttling.
 **-Precision Quantity Rounding:** Asset-specific rounding logic respecting each cryptocurrency's minimum trade increments
 
@@ -84,10 +84,13 @@ step_sizes = {
 }
 ```
 
-**-Adaptive Cash Management:** Intelligent cash scaling that recalculates buy orders based on actual post-sell balances
+**-Adaptive Cash Management:**  Intelligent cash reservation system that scales buy orders proportionally when insufficient funds are available, maintaining portfolio balance
 
-## Competition-Optimized Anti-Wash Controller
-The CompetitionWashController implements a sophisticated rule-based system:
+---------------------------------------------------------
+MODULE 6: Anti-Wash Trading Controller (The "Compliance")
+---------------------------------------------------------
+
+The CompetitionWashController class implements a comprehensive rule-based system to prevent wash trading and ensure competition compliance:
 
 ```python
 COMPETITION_CONFIG = {
@@ -100,31 +103,51 @@ COMPETITION_CONFIG = {
     "COOLDOWN_HOURS_AFTER_SELL": 2, # Strategic cooling periods
 }
 ```
-### Key Anti-Wash Innovations:
+* Advanced Compliance Features:
 
-**Smart Hold Time Enforcement:** Differentiates between existing holdings and recent purchases
-**Commission-Aware Profitability:** Validates net profit after accounting for round-trip trading costs
-**Dynamic Cooldown Management:** 2-hour cooling periods after sell operations
-**Trade Pattern Intelligence:** Detects and blocks potential wash trading patterns
+**-Hold Time Enforcement:** Prevents selling assets within 1 hour of purchase (competition-optimized)
+**-Profitability Validation:** Blocks unprofitable trades after accounting for **0.01% commission costs**
+**-Daily Trade Limits** Enforces per-asset and total daily trading caps
+**-Cooldown Periods:** Implements 2-hour cooling periods after sell operations
+**-Trade Pattern Detection:** Identifies and blocks potential wash trading patterns across asset histories
 
-## Seven-Stage Rebalancing Engine
+-----------------------------------------------------------
+MODULE 7: Portfolio Rebalancing Engine (The "Orchestrator")
+-----------------------------------------------------------
 
-The execute_rebalance function implements:
+The execute_rebalance function implements a sophisticated seven-stage process that transforms quantum-optimized allocations into executable trades:
 
-**1. Real-time Price Discovery & Portfolio Valuation**
-**2. Intelligent Weight Delta Calculation (prevents duplicates)**
-**3. Multi-layer Anti-Wash Filtering**
-**4. SELL-First Execution Strategy**
-**5. Dynamic Cash Balance Synchronization**
-**6. Cash-Scaled BUY Execution**
-**7. Comprehensive Performance Logging**
+```python
+def execute_rebalance(target_weights, current_portfolio, cash_balance, threshold=0.05):
+    # 1. Price Discovery & Portfolio Valuation
+    # 2. Weight Delta Calculation  
+    # 3. Anti-Wash Filtering
+    # 4. SELL Orders Execution (First)
+    # 5. Cash Balance Update
+    # 6. BUY Orders Execution (Scaled to available cash)
+    # 7. Performance Logging & Validation
+```
 
-## Production-Grade Reliability
+* Rebalancing Innovations:
+**Sell-First Strategy:** Executes all sell orders before buys to maximize available cash
+**Dynamic Cash Scaling:** Recalculates buy quantities based on actual post-sell cash balance
+**Commission-Aware Trading:** Factors in 0.01% commission costs in profitability calculations
+**Real-time Portfolio Synchronization:** Verifies cash balances between sell and buy phases
+**Error-Resilient Execution:** Comprehensive exception handling with detailed logging
 
-**-Secure Authentication:** HMAC-SHA256 signature generation for all API requests
-**-Robust Error Handling:** Intelligent retry logic for network failures
-**-Circuit Breaker Protection:** Emergency stops for excessive losses
-**-Comprehensive Audit Trail:** Detailed trade execution records with timestamps and order IDs
 
-This execution engine ensures our quantum-inspired portfolio optimizations translate into compliant, high-performance trades while maintaining the strategic integrity of our Dynamic Alpha-QUBO approach.
+-------------------------------------------------------
+MODULE 8: Production Reliability (The "Infrastructure")
+-------------------------------------------------------
+
+* Enterprise-Grade System Features:
+**Secure Authentication:** HMAC-SHA256 signature generation for all API requests
+**Robust Error Handling:** Intelligent retry logic for network failures and rate limits
+**Portfolio Synchronization:** Ensures consistent state between optimization and execution
+**Circuit Breaker Patterns:** Emergency stops for excessive losses or trading anomalies
+**Comprehensive Logging:** Detailed trade execution records for debugging and compliance
+**Competition Timeline Adaptation:** Integrated with main trading loop for time-based strategy adjustments
+
+This multi-module execution engine ensures quantum-inspired portfolio optimizations translate into compliant, high-performance trades while maintaining strict adherence to competition regulations and the strategic integrity of the Dynamic Alpha-QUBO approach.
+
 
