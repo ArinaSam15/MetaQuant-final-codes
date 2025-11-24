@@ -69,7 +69,7 @@ MODULE 5: Execution Engine & Anti-Wash Trading (The "Trader")
 
 As the trading execution specialist, I implemented the critical bot_executor.py module that transforms quantum-optimized portfolio allocations into real trades while maintaining strict competition compliance.
 
-# Smart Order Execution Pipeline
+## Smart Order Execution Pipeline
 **-Rate-Limited Order Placement:** Maintains **0.3-second intervals** between orders to prevent API throttling.
 **-Precision Quantity Rounding:** Asset-specific rounding logic respecting each cryptocurrency's minimum trade increments
 
@@ -86,7 +86,7 @@ step_sizes = {
 
 **-Adaptive Cash Management:** Intelligent cash scaling that recalculates buy orders based on actual post-sell balances
 
-# Competition-Optimized Anti-Wash Controller
+## Competition-Optimized Anti-Wash Controller
 The CompetitionWashController implements a sophisticated rule-based system:
 
 ```python
@@ -100,14 +100,14 @@ COMPETITION_CONFIG = {
     "COOLDOWN_HOURS_AFTER_SELL": 2, # Strategic cooling periods
 }
 ```
-## Key Anti-Wash Innovations:
+### Key Anti-Wash Innovations:
 
 **Smart Hold Time Enforcement:** Differentiates between existing holdings and recent purchases
 **Commission-Aware Profitability:** Validates net profit after accounting for round-trip trading costs
 **Dynamic Cooldown Management:** 2-hour cooling periods after sell operations
 **Trade Pattern Intelligence:** Detects and blocks potential wash trading patterns
 
-# Seven-Stage Rebalancing Engine
+## Seven-Stage Rebalancing Engine
 
 The execute_rebalance function implements:
 
@@ -119,7 +119,7 @@ The execute_rebalance function implements:
 **6. Cash-Scaled BUY Execution**
 **7. Comprehensive Performance Logging**
 
-# Production-Grade Reliability
+## Production-Grade Reliability
 
 **-Secure Authentication:** HMAC-SHA256 signature generation for all API requests
 **-Robust Error Handling:** Intelligent retry logic for network failures
